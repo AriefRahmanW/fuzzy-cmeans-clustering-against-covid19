@@ -14,8 +14,10 @@ class FuzzyCmeans():
     obj_function = None
     matrix_partition = None
 
-    def __init__(self, max_cluster):
+    def __init__(self, max_cluster, min_error, max_iteration):
         self.MAX_CLUSTER = max_cluster
+        self.MIN_ERROR = min_error
+        self.MAX_ITERATION = max_iteration
 
     def select_data(self, path: str, label: str, cols: list):
         self.df = pd.read_csv(path)
