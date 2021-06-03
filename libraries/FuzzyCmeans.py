@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import os
 
 class FuzzyCmeans():
-    MAX_CLUSTER = 5
+    N_CLUSTER = 5
     MIN_ERROR = 0.01
     MAX_ITERATION = 100
     PREV_TOTAL = 0
@@ -14,8 +17,8 @@ class FuzzyCmeans():
     obj_function = None
     matrix_partition = None
 
-    def __init__(self, max_cluster, min_error, max_iteration):
-        self.MAX_CLUSTER = max_cluster
+    def __init__(self, n_cluster, min_error, max_iteration):
+        self.N_CLUSTER = n_cluster
         self.MIN_ERROR = min_error
         self.MAX_ITERATION = max_iteration
 
@@ -27,19 +30,21 @@ class FuzzyCmeans():
         self.init_var()
         self.init_random()
 
-    def show_data(self):
-        print(self.cols.head())
+    def show_data(self, show_all=False):
+        pd.set_option('max_rows', None if show_all else 5)
+
+        print(self.cols.head(187))
 
     def generate_random(self):
-        np.random.seed(0)
-        return np.random.dirichlet(np.ones(self.MAX_CLUSTER),size=len(self.cols))
+        np.random.seed(1)
+        return np.random.dirichlet(np.ones(self.N_CLUSTER),size=len(self.cols))
 
     def init_var(self):
-        self.c_colname = ["C" + str(i + 1) for i in range(self.MAX_CLUSTER)]
+        self.c_colname = ["C" + str(i + 1) for i in range(self.N_CLUSTER)]
         self.x_colname = ["X" + str(i + 1) for i in range(len(self.cols.columns))]
-        self.v_colname = ["V" + str(i + 1) for i in range(self.MAX_CLUSTER)]
-        self.l_colname = ["L" + str(i + 1) for i in range(self.MAX_CLUSTER)]
-        self.cluster_name = ["CLUSTER_" + str(i + 1) for i in range(self.MAX_CLUSTER)]
+        self.v_colname = ["V" + str(i + 1) for i in range(self.N_CLUSTER)]
+        self.l_colname = ["L" + str(i + 1) for i in range(self.N_CLUSTER)]
+        self.cluster_name = ["CLUSTER_" + str(i + 1) for i in range(self.N_CLUSTER)]
 
         self.cols.columns = self.x_colname
 
@@ -54,10 +59,18 @@ class FuzzyCmeans():
         result = pd.DataFrame()
         result["label"] = self.df[self.label]
         for i, c in enumerate(self.c_colname):
-            result[self.cluster_name[i]] = np.where(self.c_df[c] == self.c_df.max(axis=1), "1", "")
+            result[self.cluster_name[i]] = np.where(self.c_df[c] == self.c_df.max(axis=1), 1, 0)
 
         pd.set_option('max_rows', None if show_all else 5)
         print(result.head(187))
+
+        evaluate = pd.DataFrame()
+        for i, c in enumerate(self.cluster_name):
+            evaluate[c] = [np.sum(result[c])]
+
+        evaluate.index = ["SUM"]
+        evaluate["TOTAL"] = evaluate.sum(axis=1)
+        print(evaluate)
 
         del result
     
@@ -113,18 +126,13 @@ class FuzzyCmeans():
 
         print(self.obj_function.head(187))
 
-    def calc_error(self, verbose=False):
+    def calc_error(self):
         CUR_TOTAL = np.sum(self.obj_function["TOTAL"])
         LAST_ERROR = np.abs(CUR_TOTAL-self.PREV_TOTAL)
 
-        if verbose:
-            print()
-            print("CUR_TOTAL = ",CUR_TOTAL)
-            print("LAST_ERROR = ", LAST_ERROR)
-
         self.PREV_TOTAL = CUR_TOTAL
 
-        return LAST_ERROR
+        return LAST_ERROR, CUR_TOTAL
 
     def calc_matrix_partition(self):
         self.matrix_partition = pd.DataFrame()
@@ -146,11 +154,42 @@ class FuzzyCmeans():
             self.start_step_1()
             self.start_step_2()
             self.calc_obj_function()
-            error = self.calc_error(verbose)
+            error, total = self.calc_error()
             self.calc_matrix_partition()
             self.update_c()
+
+            if verbose:
+                print()
+                print("CUR_ITERRATION = ", i)
+                print("CUR_TOTAL = ",total)
+                print("LAST_ERROR = ", error)
+                # os.system("cls")
+
             if error < self.MIN_ERROR:
                 break
+
+    def find_all_cluster(self, name):
+        print(self.all_cluster[name]["DATA"])
+
+    def scatter_plot(self, x_label="", y_label="", z_label=""):
+        fig = plt.figure(figsize=(6, 6))
+        ax = fig.add_subplot(111, projection='3d')
+
+        x = self.cols["X1"]
+        y = self.cols["X2"]
+        z = self.cols["X3"]
+
+        ax.scatter(x, y, z,
+                linewidths=0.5, alpha=.7,
+                edgecolor='k',
+                s = 20,
+                c=z)
+        # plt
+        # ax.scatter(x, y, z)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_zlabel(z_label)
+        plt.show()
 
 
     
